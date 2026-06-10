@@ -15,19 +15,21 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  Future<void> login() async{
+  Future<void> login() async {
     if (_formKey.currentState!.validate()) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLogin', true);
       await prefs.setString('username', _usernameController.text);
 
       if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
       }
     }
   }
 
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,13 +42,14 @@ class _LoginPageState extends State<LoginPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Padding(padding: const EdgeInsets.all(25),
+            child: Padding(
+              padding: const EdgeInsets.all(25),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children:[
-                    const Icon(Icons.login, size: 80, color: Colors.teal),
+                  children: [
+                    const Icon(Icons.person, size: 80, color: Colors.green),
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _usernameController,
@@ -82,7 +85,9 @@ class _LoginPageState extends State<LoginPage> {
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                           ),
                           onPressed: () {
                             setState(() {
@@ -101,21 +106,24 @@ class _LoginPageState extends State<LoginPage> {
                       child: ElevatedButton(
                         onPressed: login,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
+                          backgroundColor: Colors.green,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Text('Login', style: TextStyle(fontSize: 16, color: Colors.white)),
+                        child: const Text(
+                          'Login',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                       ),
-                    )
-                  ]
+                    ),
+                  ],
                 ),
-              )
-            )
-          )
-        )
-      )
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
