@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:p10/models/product_model.dart';
 import 'package:p10/widgets/product_card.dart';
 import 'product_detail_page.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class ProductPage extends StatefulWidget {
   const ProductPage({super.key});
@@ -60,71 +63,140 @@ class _ProductPageState extends State<ProductPage> {
     });
     await saveProducts();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Produk berhasil dihapus")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Produk berhasil dihapus")));
+  }
+
+  Future<String> convertImageToBase64(XFile image) async {
+    Uint8List bytes = await image.readAsBytes();
+    return base64Encode(bytes);
   }
 
   void showForm({ProductModel? product, int? index}) {
-    TextEditingController nameController =
-        TextEditingController(text: product?.name ?? "");
-    TextEditingController descriptionController =
-        TextEditingController(text: product?.description ?? "");
-    TextEditingController priceController =
-        TextEditingController(text: product?.price.toString() ?? "");
+    TextEditingController nameController = TextEditingController(
+      text: product?.name ?? "",
+    );
+    TextEditingController descriptionController = TextEditingController(
+      text: product?.description ?? "",
+    );
+    TextEditingController priceController = TextEditingController(
+      text: product?.price.toString() ?? "",
+    );
+    TextEditingController imgController = TextEditingController(
+      text: product?.image ?? "",
+    );
+
+    XFile? selectedImage;
+    final ImagePicker picker = ImagePicker();
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(product == null ? "Tambah Produk" : "Edit Produk"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Nama"),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> pickImage(StateSetter setDialogState) async {
+            final XFile? image = await picker.pickImage(
+              source: ImageSource.gallery,
+            );
+            if (image != null) {
+              setDialogState(() {
+                selectedImage = image;
+                imgController.text = image.path;
+              });
+            }
+          }
+
+          Widget buildPreviewImage() {
+            if (selectedImage != null) {
+              return FutureBuilder<Uint8List>(
+                future: selectedImage!.readAsBytes(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
+                  return Image.memory(
+                    snapshot.data!,
+                    width: 150,
+                    height: 150,
+                    fit: BoxFit.cover,
+                  );
+                },
+              );
+            }
+            if (product?.image.isNotEmpty ?? false) {
+              return Image.memory(
+                base64Decode(product!.image),
+                width: 150,
+                height: 150,
+                fit: BoxFit.cover,
+              );
+            }
+            return const SizedBox.shrink();
+          }
+
+          return AlertDialog(
+            title: Text(product == null ? "Tambah Produk" : "Edit Produk"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: "Nama"),
+                  ),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(labelText: "Deskripsi"),
+                  ),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: "Harga"),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: () => pickImage(setDialogState),
+                    icon: const Icon(Icons.image),
+                    label: const Text("Pilih Gambar"),
+                  ),
+                  const SizedBox(height: 10),
+                  buildPreviewImage(),
+                ],
+              ),
             ),
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(labelText: "Deskripsi"),
-            ),
-            TextField(
-              controller: priceController,
-              decoration: const InputDecoration(labelText: "Harga"),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          TextButton(
-            onPressed: () {
-              if (product == null) {
-                addProduct(
-                  ProductModel(
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Batal"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  String imageBase64 = product?.image ?? "";
+                  if (selectedImage != null) {
+                    imageBase64 = await convertImageToBase64(selectedImage!);
+                  }
+
+                  final newProduct = ProductModel(
                     name: nameController.text,
                     description: descriptionController.text,
                     price: int.parse(priceController.text),
-                  ),
-                );
-              } else {
-                updateProduct(
-                  index!,
-                  ProductModel(
-                    name: nameController.text,
-                    description: descriptionController.text,
-                    price: int.parse(priceController.text),
-                  ),
-                );
-              }
-              Navigator.pop(context);
-            },
-            child: const Text("Simpan"),
-          ),
-        ],
+                    image: imageBase64,
+                  );
+
+                  if (product == null) {
+                    addProduct(newProduct);
+                  } else {
+                    updateProduct(index!, newProduct);
+                  }
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+                child: const Text("Simpan"),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -144,6 +216,15 @@ class _ProductPageState extends State<ProductPage> {
         margin: const EdgeInsets.all(20),
         child: Column(
           children: [
+            ElevatedButton(
+              onPressed: () => showForm(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text("Tambah Produk"),
+            ),
+            const SizedBox(height: 10),
             Expanded(
               child: products.isEmpty
                   ? const Center(child: Text("Belum ada produk"))
@@ -169,11 +250,6 @@ class _ProductPageState extends State<ProductPage> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showForm(),
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
